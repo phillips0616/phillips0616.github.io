@@ -1,37 +1,147 @@
-## Welcome to GitHub Pages
+## Introduction
 
-You can use the [editor on GitHub](https://github.com/phillips0616/phillips0616.github.io/edit/main/index.md) to maintain and preview the content for your website in Markdown files.
+The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The obstacles and robot were defined as collision objects using the FCL library, for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique and ideas for improvements. 
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+## PRM Implementation
 
-### Markdown
+#### Overview
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+PRM motion planning is generally broken into a learning, query, and smoothing phases. My implementation of each of these phases is discussed below.
 
-```markdown
-Syntax highlighted code block
+### Learning Phase
 
-# Header 1
-## Header 2
-### Header 3
+The overall goal of the learning phase is to generate random configurations in c-free and connect them together into searchable graph.
 
-- Bulleted
-- List
+##### Generating random configurations
 
-1. Numbered
-2. List
+Configurations are made up of a position component (i.e., x, y, and z for 3D) and a rotational component. The position component is relatively simple to randomly generated. I generated a random number from a uniform distribution for each of the x, y, and z component and stored these in a Point object. The rotational component requires a little more thought. I used quaternions to represent my rotational component and used the method described in Kuffner's "Effective Sampling and Distance Metrics for 3D Rigid Body Path Planning" to randomly sample unit quaternions and stored them in a Quaternion object. Below is the snippet of Python code used to do that.
 
-**Bold** and _Italic_ and `Code` text
+```python
+def generate_random_quaternion(self):
+    rand = random.uniform(0, 1)
 
-[Link](url) and ![Image](src)
+    a = math.sqrt(1 - rand)
+    b = math.sqrt(rand)
+    c = 2*math.pi*random.uniform(0, 1)
+    d = 2*math.pi*random.uniform(0, 1)
+
+    w = math.cos(d) * b
+    x = math.sin(c) * a
+    y = math.cos(c) * a
+    z = math.sin(d) * b
+
+    quaternion = Quaternion(w, x, y, z)
+    return quaternion
+```
+The number of configurations generated is a hyper parameter that can be modified. Allowing more configurations will cover more of c-free and make finding solutions when searching the graph more likely, but will also increase the density of your graph and impact search performance.
+
+In order to ensure the configurations generated were in c-free I used the FCL library to place my robot at that position and check for collisions against all obstacles.
+
+##### Connecting Configurations
+
+Once you have a set of configurations they need to be connected into a graph. To do this we interate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances and interpolating paths.
+
+###### Computing Distances
+
+I computed the distance as a weighted sum between the translational piece and the rotational piece, using the inner product of the two quaternions, as described in Kuffner's paper. Code snippets showing these calculations are below. Using this distance, I calculated the _k_ nearest neighbors naively, computing the current configurations distance from all other configurations and sorting the result (performance could be improved by using a k-d tree).
+
+```python
+#computes traditional euclidian distance in 3D
+def translational_distance(self, c1, c2):
+    x_diff_sqrd = (c2.point.x - c1.point.x) ** 2
+    y_diff_sqrd = (c2.point.y - c1.point.y) ** 2 
+    z_diff_sqrd = (c2.point.z - c1.point.z) ** 2 
+
+    trans_distance = math.sqrt(x_diff_sqrd + y_diff_sqrd + z_diff_sqrd)
+
+    return trans_distance
+
+#computes inner product of the two quaternions
+def rotational_distance(self, c1, c2):
+
+    scale = c1.quaternion.w * c2.quaternion.w
+    x = c1.quaternion.x * c2.quaternion.x
+    y = c1.quaternion.y * c2.quaternion.y
+    z = c1.quaternion.z * c2.quaternion.z
+
+    rot_distance = 1 - abs(scale + x + y + z) 
+
+    return rot_distance
+
+#computes the difference between two configurations by weighting and summing the 
+#translational and rotational components
+def distance(self, c1, c2):
+    trans_distance = self.translational_distance(c1, c2)
+    rot_distance = self.rotational_distance(c1, c2)
+
+    #these weights are used to adjust the significance of each type of movement
+    weight_rot = 0.25
+    weight_trans = 1.0
+    weighted_dist = (weight_trans * trans_distance) + (weight_rot * rot_distance)
+    return weighted_dist
+```
+###### Interpolation
+The translational interpolation was done by creating a difference vector between the current and final positions and then incrementing the individual components of that vector by a small step size. Simultaneously, rotational interpolation is performed using SLERP, as described by Kuffner, using the same step size. At each step the new position and orientation are checked for collisions using FCL. The step size controls the number of collision detections that will be performed, and therefore, has a substantial impact on performance. However, the step size must be large enough to consistently detect collisions between the robot and obstacles. Below are the methods implemented to perform interpolation.
+
+```python
+def slerp(self, start_quat, weight, final_quat):
+    w1 = start_quat.w
+    x1 = start_quat.x
+    y1 = start_quat.y
+    z1 = start_quat.z
+
+    w2 = final_quat.w
+    x2 = start_quat.x
+    y2 = start_quat.y
+    z2 = start_quat.z
+
+    inner_prod = (w1 * w2) + (x1 * x2) + (y1 * y2) + (z1 * z2)
+    if inner_prod < 0:
+        w2 = -w2
+        x2 = -x2
+        y2 = -y2
+        z2 = -z2
+        inner_prod = abs(inner_prod)
+    
+    e = 0.5 #value to determine if we need slerp
+    if abs(1-inner_prod) < e:
+        r = 1 - weight
+        s = weight
+    else:
+        alpha = math.acos(inner_prod)
+        gamma = 1 / math.sin(alpha)
+        r = math.sin((1-weight)*alpha)*gamma
+        s = math.sin(weight*alpha)*gamma
+    
+    w = r*w1 + s*w2
+    x = r*x1 + s*x2
+    y = r*y1 + s*y2
+    z = r*z1 + s*z1
+
+    mag = math.sqrt(w**2 + x**2 + y**2 + z**2)
+
+    return Quaternion(w / mag, x / mag, y / mag, z / mag)
+
+def is_iterpolated_collision(self, start_point3d, start_quaternion, final_point3d, final_quaternion):
+
+    diff_vector = [final_point3d.x - start_point3d.x, final_point3d.y - start_point3d.y, final_point3d.z - start_point3d.z]
+    next_rotation = start_quaternion
+
+    for r in range(self.iter):
+        
+        next_position = [start_point3d.x + (r / self.iter)*diff_vector[0], start_point3d.y + (r / self.iter)*(diff_vector[1]), start_point3d.z + (r / self.iter)*diff_vector[2]]
+        next_rotation = self.slerp(next_rotation, r / self.iter ,final_quaternion)
+        
+        self.agent.setTranslation(np.array(next_position))
+        self.agent.setQuatRotation(np.array([next_rotation.w, next_rotation.x, next_rotation.y, next_rotation.z]))
+        for obstacle in self.obstacles:
+            request = fcl.CollisionRequest()
+            result = fcl.CollisionResult()
+            ret = fcl.collide(self.agent, obstacle['obj'], request, result)
+            if ret > 0.0:
+                return True
+    return False
 ```
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
 
-### Jekyll Themes
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/phillips0616/phillips0616.github.io/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
