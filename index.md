@@ -39,11 +39,11 @@ In order to ensure the configurations generated were in c-free I used the FCL li
 
 ##### Connecting Configurations
 
-Once you have a set of configurations they need to be connected into a graph. To do this we interate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances and interpolating paths.
+Once you have a set of configurations they need to be connected into a graph. To do this we iterate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances and interpolating paths.
 
 ###### Computing Distances
 
-I computed the distance as a weighted sum between the translational piece and the rotational piece, using the inner product of the two quaternions, as described in Kuffner's paper. Code snippets showing these calculations are below. Using this distance, I calculated the _k_ nearest neighbors naively, computing the current configurations distance from all other configurations and sorting the result (performance could be improved by using a k-d tree).
+I computed the distance as a weighted sum between the translational piece and the rotational piece, using the inner product of the two quaternions, as described in Kuffner's paper. Code snippets showing these calculations are below. Using this distance, I calculated the _k_ nearest neighbors naively, computing the current configuration's distance from all other configurations and sorting the result (performance could be improved by using a k-d tree).
 
 ```python
 #computes traditional euclidian distance in 3D
