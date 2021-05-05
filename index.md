@@ -224,7 +224,7 @@ As expected the sparse environment was the easiest to solve and a path can be re
 
 ## Conclusion
 
-Overall, I think the PRM implementation was a good method for solving this problem.
+Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are a couple of GIFs showcasing successful paths visualized in ROS. 
 
 ####Improvements
 
@@ -232,3 +232,5 @@ There are a couple of improvements I could make to this implementation to improv
 
 #### Next Steps
 While the version I implemented was the vanilla PRM there are many alterations that can be made for better performance depending on the suspected environment. I would have liked to compare my implementation to a lazy PRM, which doesn't perform collision detection when storing configurations, or to the visibility PRM, which reduces graph density. 
+
+#### Successful Paths from ROS
