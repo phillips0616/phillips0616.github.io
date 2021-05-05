@@ -148,6 +148,8 @@ Once the learning phase is complete and the roadmap has been constructed it can 
 
 The closest _k_ neighbors are found for both configurations and a path between each of those _k_ neighbors is attempted until either a collision free path is discovered or all _k_ neighbors have been tried. A difference between this method and the method above is that only _k_ attempts are made to connect the configurations to the graph. Once _k_ attempts have been made, if no connections have been found, we return failure. 
 
+If the initial and goal configurations were successfully added to the graph that graph can be searched to find a path between them. I implemented Dijkstra's algorithm to search the graph for a shortest path. 
+
 #### Smoothing Phase
 
 If a valid path between two configurations is found, smoothing that path could be useful. Smoothing can cut down on the intermediate positions the robot will take between the two configurations, and cut down on the overall distance travelled. 
@@ -185,7 +187,7 @@ def smooth_path(path):
 
 ## Analysis
 
-I tested my implementation against three different environments with varying parameters for the number of configurations generated and the number of _k_ neighbors. I analyzed each combination's performance on runtime, chance of success, distance travelled. I also provide results for the path before and after smoothing. Below is a breakdown for each environment 
+I tested my implementation against three different environments with varying parameters for the number of configurations generated and the number of _k_ neighbors. I analyzed each combination's performance on runtime, chance of success, distance travelled. I also provide results for the path before and after smoothing. Below is a brief description of each environment followed by a breakdown of the performance results.
 
 #### Sparse Environment
 
@@ -204,3 +206,29 @@ The dense environment contained several box obstacles that cluttered c-free. It 
 The narrow environment contained two large box obstacles. It forced the algorithm to pass through a narrow passage to reach the goal. 
 
 <img src="images/narrow_env.png" alt="drawing" width="600" height="400"/>
+
+#### Results
+
+The results below were generated in a 10x10x10 environment and the averages are over 500 iterations. In each iteration the initial position was in the bottom left (-10,-10,0) and the goal was in the top right (10,10,10).
+
+| Environment | Neighbors | Configurations | Avg Runtime (seconds) | Avg Distance (no path smoothing) | Avg Distance (path smoothing) | % Success |
+|-------------|-----------|----------------|-----------------------|------------------------------|---------------------------|-----------|
+| sparse      | 3         | 30             | 0.12                  | 45.66                        | 32.68                     | 81.61     |
+| sparse      | 7         | 80             | 0.74                  | 37.60                        | 31.82                     | 100.00    |
+| dense       | 3         | 30             | 0.28                  | 48.90                        | 38.6                      | 8.0       |
+| dense       | 7         | 80             | 1.77                  | 44.67                        | 38.4                      | 64.0      |
+| narrow      | 3         | 30             | 0.145                 | 47.92                        | 37.06                     | 3.98      |
+| narrow      | 7         | 80             | 0.89                  | 41.37                        | 35.45                     | 41.2      |                    |                           |           |
+
+As expected the sparse environment was the easiest to solve and a path can be reliably found using eighty configurations. Another interesting finding is that even though the narrow environment was the most difficult for the algorithm to solve, it was more runtime efficient than the dense environment and had similar run times to the sparse environment. This is because even though the passage is difficult to cross its overall obstacle density isn't substantial and collisions when generating configurations, or attempting to connect paths, are minimal. 
+
+## Conclusion
+
+Overall, I think the PRM implementation was a good method for solving this problem.
+
+####Improvements
+
+There are a couple of improvements I could make to this implementation to improve performance. When I compute the distances between configurations, I could store them in a k-d tree which can be used to limit the number of comparisons made to find the nearest neighbors to a given configuration. Also, I could use a priority queue in Dijkstra's algorithm to reduce the complexity of the graph searching from _O(n^2)_ to _O(nlogn)_.
+
+#### Next Steps
+While the version I implemented was the vanilla PRM there are many alterations that can be made for better performance depending on the suspected environment. I would have liked to compare my implementation to a lazy PRM, which doesn't perform collision detection when storing configurations, or to the visibility PRM, which reduces graph density. 
