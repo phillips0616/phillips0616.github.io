@@ -234,3 +234,13 @@ There are a couple of improvements I could make to this implementation to improv
 While the version I implemented was the vanilla PRM there are many alterations that can be made for better performance depending on the suspected environment. I would have liked to compare my implementation to a lazy PRM, which doesn't perform collision detection when storing configurations, or to the visibility PRM, which reduces graph density. 
 
 #### Successful Paths from ROS
+
+Here is Sphero successfully navigating the dense environment. 
+
+<img src="images/dense_traversal.gif" alt="drawing" width="600" height="400"/>
+
+The two GIFs below are from the same PRM the first without path smoothing and the second with it.
+
+<img src="images/non_smoothed.gif" alt="drawing" width="600" height="400"/>
+
+<img src="images/smooth.gif" alt="drawing" width="600" height="400"/>
