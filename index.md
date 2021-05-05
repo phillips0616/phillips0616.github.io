@@ -182,3 +182,5 @@ def smooth_path(path):
     smooth_path, dist = graph.search(path[0], path[-1])
     return smooth_path, dist
 ```
+
+### Analysis
