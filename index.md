@@ -183,4 +183,24 @@ def smooth_path(path):
     return smooth_path, dist
 ```
 
-### Analysis
+## Analysis
+
+I tested my implementation against three different environments with varying parameters for the number of configurations generated and the number of _k_ neighbors. I analyzed each combination's performance on runtime, chance of success, distance travelled. I also provide results for the path before and after smoothing. Below is a breakdown for each environment 
+
+#### Sparse Environment
+
+The sparse environment consisted of one box obstacle centered in the plane. It was tall enough to either force the path to go around, or over, the obstacle to reach the goal destination. 
+
+<img src="images/sparse_env.png" alt="drawing" width="600" height="400"/>
+
+#### Dense Environment
+
+The dense environment contained several box obstacles that cluttered c-free. It forced the algorithm to wind around multiple objects.
+
+<img src="images/dense_env.png" alt="drawing" width="600" height="400"/>
+
+#### Narrow Environment
+
+The narrow environment contained two large box obstacles. It forced the algorithm to pass through a narrow passage to reach the goal. 
+
+<img src="images/narrow_env.png" alt="drawing" width="600" height="400"/>
