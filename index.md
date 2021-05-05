@@ -8,7 +8,7 @@ The problem I solved was motion planning for a holonomic cylindrical robot in a 
 
 PRM motion planning is generally broken into a learning, query, and smoothing phases. My implementation of each of these phases is discussed below.
 
-### Learning Phase
+#### Learning Phase
 
 The overall goal of the learning phase is to generate random configurations in c-free and connect them together into searchable graph.
 
@@ -142,6 +142,43 @@ def is_iterpolated_collision(self, start_point3d, start_quaternion, final_point3
                 return True
     return False
 ```
+#### Query Phase
 
+Once the learning phase is complete and the roadmap has been constructed it can now queried to find paths between initial and goal configurations. Given an initial and goal configuration, the algorithm attempts to add them to the existing network through a method that is similar to how edges are added between configurations. 
 
+The closest _k_ neighbors are found for both configurations and a path between each of those _k_ neighbors is attempted until either a collision free path is discovered or all _k_ neighbors have been tried. A difference between this method and the method above is that only _k_ attempts are made to connect the configurations to the graph. Once _k_ attempts have been made, if no connections have been found, we return failure. 
 
+#### Smoothing Phase
+
+If a valid path between two configurations is found, smoothing that path could be useful. Smoothing can cut down on the intermediate positions the robot will take between the two configurations, and cut down on the overall distance travelled. 
+
+I implemented a greedy smoothing strategy. It works by trying to connect the initial node directly to the goal node with a collision free path. If that connection fails it moves up a node until either it finds a connection that isn't immediately prior to the goal node and can connects to it, or doesn't find any new connections. If it finds a new connection it restarts the process using the initial node it found in the previous sweep. If no new connections were found it moves the goal node to the node prior to it and restarts the process.
+
+Once that smoothing process has completed I search the graph again, any improvements would be reflected in the new search, otherwise I would receive the same path. Below is pseudocode that reflects the process described above. I didn't include snippets directly from my project code because the process is clouded by object naming conventions and method parameters.
+
+```python
+def smooth_path(path):
+    smoothing = True
+    init_node = path[0]
+    goal_node = path[-1]
+    goal_index = len(path)
+    while smoothing:
+        found_improvement = False
+        
+        for node in path:
+            if no_collision(node, goal):
+                add_edge(node, goal)
+                goal_node = node
+                found_improvement = True
+                break
+        
+        if not found_improvement:
+            goal_index -= 1
+            goal_node = path[goal_index]
+        
+        if init_node == goal_node:
+            smoothing = False
+
+    smooth_path, dist = graph.search(path[0], path[-1])
+    return smooth_path, dist
+```
