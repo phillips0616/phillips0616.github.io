@@ -1,6 +1,8 @@
 ## Introduction
 
-The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The obstacles and robot were defined as collision objects using the FCL library, which was used for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique and ideas for improvements. 
+The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The environment was represented as a 10x10x10 cube and the robot as a cylinder with radius and height equal to 0.5, there is an approximate image of the agent below. The obstacles and robot were defined as collision objects using the FCL library, which was used for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique, including ideas for improvements. 
+
+<img src="images/agent.png" alt="drawing"/>
 
 ## PRM Implementation
 
@@ -10,11 +12,11 @@ PRM motion planning is generally broken into learning, query, and smoothing phas
 
 #### Learning Phase
 
-The goal of the learning phase is to generate random configurations in c-free and connect them together into searchable graph.
+The goal of the learning phase is to generate random configurations in c-free and connect them together into a searchable graph.
 
 ##### Generating random configurations
 
-Configurations are made up of a position component (i.e., x, y, and z for 3D) and a rotational component. The position component is relatively simple to randomly generate. I generated a random number from a uniform distribution for each of the x, y, and z components and stored these in a Point object. The rotational component requires a little more thought. I used quaternions to represent my rotational component and used the method described in Kuffner's "Effective Sampling and Distance Metrics for 3D Rigid Body Path Planning" to randomly sample unit quaternions and stored them in a Quaternion object. Below is the snippet of Python code used to do that.
+Configurations are made up of a position component (i.e., x, y, and z for 3D) and a rotational component. The position component is relatively simple to randomly generate. I generated a random number from a uniform distribution for each of the x, y, and z components and stored these in a Point object. The rotational component requires a little more thought. I used quaternions to represent my rotational component and used the method described in Kuffner's _"Effective Sampling and Distance Metrics for 3D Rigid Body Path Planning"_ to randomly sample unit quaternions and stored them in a Quaternion object. Below is the snippet of Python code used to do that.
 
 ```python
 def generate_random_quaternion(self):
@@ -39,7 +41,7 @@ In order to ensure the configurations generated were in c-free, I used the FCL l
 
 ##### Connecting Configurations
 
-Once you have a set of configurations they need to be connected into a graph. To do this we iterate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances, and interpolating paths.
+Once you have a set of configurations, they need to be connected into a graph. To do this we iterate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances, and interpolating paths.
 
 ###### Computing Distances
 
@@ -81,7 +83,7 @@ def distance(self, c1, c2):
     return weighted_dist
 ```
 ###### Interpolation
-The translational interpolation was done by creating a difference vector between the current and final positions and then incrementing the individual components of that vector by a small step size. Simultaneously, rotational interpolation is performed using SLERP, as described by Kuffner, using the same step size. At each step the new position and orientation are checked for collisions using FCL. The step size controls the number of collision detections that will be performed, and therefore, has a substantial impact on performance. However, the step size must be large enough to consistently detect collisions between the robot and obstacles. Below are the methods implemented to perform interpolation.
+The translational interpolation was done by creating a difference vector between the current and final positions and then incrementing the individual components of that vector by a small step size. Simultaneously, rotational interpolation is performed using SLERP, as described by Kuffner. At each step the new position and orientation are checked for collisions using FCL. The number of steps control the number of collision detections that will be performed, and therefore, have a substantial impact on performance. However, the number of steps must be large enough to consistently detect collisions between the robot and obstacles. Below are the methods implemented to perform interpolation.
 
 ```python
 def slerp(self, start_quat, weight, final_quat):
@@ -146,7 +148,7 @@ def is_iterpolated_collision(self, start_point3d, start_quaternion, final_point3
 
 Once the learning phase is complete and the roadmap has been constructed it can now queried to find paths between initial and goal configurations. Given an initial and goal configuration, the algorithm attempts to add them to the existing network through a method that is similar to how edges are added between configurations. 
 
-The closest _k_ neighbors are found for both configurations and a path between each of those _k_ neighbors is attempted until either a collision free path is discovered or all _k_ neighbors have been tried. A difference between this method and the method above is that only _k_ attempts are made to connect the configurations to the graph. Once _k_ attempts have been made, if no connections have been found, we return failure. 
+The closest _k_ neighbors are found for both configurations and a path between each of those _k_ neighbors is attempted until either a collision free path is discovered, or all _k_ neighbors have been tried. A difference between this method and the method above is that only _k_ attempts are made to connect the configurations to the graph. Once _k_ attempts have been made, if no connections have been found, we return failure. 
 
 If the initial and goal configurations were successfully added to the graph it can be searched to find a path between them. I implemented Dijkstra's algorithm to search the graph for a shortest path. 
 
@@ -154,9 +156,9 @@ If the initial and goal configurations were successfully added to the graph it c
 
 If a valid path between two configurations is found, smoothing that path could be useful. Smoothing can cut down on the intermediate positions the robot will take between the two configurations, and cut down on the overall distance travelled. 
 
-I implemented a greedy smoothing strategy. It works by trying to connect the initial node directly to the goal node with a collision free path. If that connection fails it moves up a node until either it finds a connection that isn't immediately prior to the goal node and can connects to it, or doesn't find any new connections. If it finds a new connection it restarts the process using the node it found in the previous sweep as the new goal node. If no new connections were found it moves the goal node to the node prior to it and restarts the process.
+I implemented a greedy smoothing strategy. It works by trying to connect the initial node directly to the goal node with a collision free path. If that connection fails it moves up a node until either it finds a connection that isn't immediately prior to the goal node and can connect to it, or doesn't find any new connections. If it finds a new connection it restarts the process using the node it found in the previous sweep as the new goal node. If no new connections were found it moves the goal node to the node prior to it and restarts the process.
 
-Once that smoothing process has completed I search the graph again, any improvements would be reflected in the new search, otherwise I would receive the same path. Below is pseudocode that reflects the process described above. I didn't include snippets directly from my project code because the process is clouded by naming conventions and method parameters.
+Once that smoothing process has completed I search the graph again, any improvements will be reflected in the new search, otherwise I would receive the same path. Below is pseudocode that reflects the process described above. I didn't include snippets directly from my project code because the process is clouded by naming conventions and method parameters.
 
 ```python
 def smooth_path(path):
@@ -224,7 +226,7 @@ As expected the sparse environment was the easiest to solve and a path can be re
 
 ## Conclusion
 
-Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are some GIFs showcasing successful paths visualized in ROS. 
+Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are some GIFs showcasing successful paths visualized in ROS. You will notice in the animations that the robot is spherical, and only rotates around the vertical axis. This is because while the robot in my code is cylindrical and uses quaternions to represent rotation around all axes, I didn't update the URDF for Sphero to reflect this. I left the agent spherical and extracted the yaw from quaternions using the methods described in LaValle's "_Motion Planning_". 
 
 #### Improvements
 
