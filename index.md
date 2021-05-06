@@ -218,7 +218,7 @@ The results below were generated in a 10x10x10 environment and the averages are 
 | dense       | 3         | 30             | 0.28                  | 48.90                        | 38.6                      | 8.0       |
 | dense       | 7         | 80             | 1.77                  | 44.67                        | 38.4                      | 64.0      |
 | narrow      | 3         | 30             | 0.145                 | 47.92                        | 37.06                     | 3.98      |
-| narrow      | 7         | 80             | 0.89                  | 41.37                        | 35.45                     | 41.2      |                    |                           |           |
+| narrow      | 7         | 80             | 0.89                  | 41.37                        | 35.45                     | 41.2      |    
 
 As expected the sparse environment was the easiest to solve and a path can be reliably found using eighty configurations. Another interesting finding is that even though the narrow environment was the most difficult for the algorithm to solve, it was more runtime efficient than the dense environment and had similar run times to the sparse environment. This is because even though the passage is difficult to cross its overall obstacle density isn't substantial and collisions when generating configurations, or attempting to connect paths, are minimal. 
 
@@ -226,7 +226,7 @@ As expected the sparse environment was the easiest to solve and a path can be re
 
 Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are some GIFs showcasing successful paths visualized in ROS. 
 
-####Improvements
+#### Improvements
 
 There are some improvements I could make to this implementation to improve performance. When I compute the distances between configurations, I could store them in a k-d tree which can be used to limit the number of comparisons made when finding the nearest neighbors to a given configuration. Also, I could use a priority queue in Dijkstra's algorithm to reduce the complexity of the graph searching from _O(n^2)_ to _O(nlogn)_.
 
