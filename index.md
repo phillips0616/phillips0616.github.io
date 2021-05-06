@@ -1,20 +1,20 @@
 ## Introduction
 
-The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The obstacles and robot were defined as collision objects using the FCL library, for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique and ideas for improvements. 
+The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The obstacles and robot were defined as collision objects using the FCL library, which was used for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique and ideas for improvements. 
 
 ## PRM Implementation
 
 #### Overview
 
-PRM motion planning is generally broken into a learning, query, and smoothing phases. My implementation of each of these phases is discussed below.
+PRM motion planning is generally broken into learning, query, and smoothing phases. My implementation of each of these phases is discussed below.
 
 #### Learning Phase
 
-The overall goal of the learning phase is to generate random configurations in c-free and connect them together into searchable graph.
+The goal of the learning phase is to generate random configurations in c-free and connect them together into searchable graph.
 
 ##### Generating random configurations
 
-Configurations are made up of a position component (i.e., x, y, and z for 3D) and a rotational component. The position component is relatively simple to randomly generated. I generated a random number from a uniform distribution for each of the x, y, and z component and stored these in a Point object. The rotational component requires a little more thought. I used quaternions to represent my rotational component and used the method described in Kuffner's "Effective Sampling and Distance Metrics for 3D Rigid Body Path Planning" to randomly sample unit quaternions and stored them in a Quaternion object. Below is the snippet of Python code used to do that.
+Configurations are made up of a position component (i.e., x, y, and z for 3D) and a rotational component. The position component is relatively simple to randomly generate. I generated a random number from a uniform distribution for each of the x, y, and z components and stored these in a Point object. The rotational component requires a little more thought. I used quaternions to represent my rotational component and used the method described in Kuffner's "Effective Sampling and Distance Metrics for 3D Rigid Body Path Planning" to randomly sample unit quaternions and stored them in a Quaternion object. Below is the snippet of Python code used to do that.
 
 ```python
 def generate_random_quaternion(self):
@@ -33,17 +33,17 @@ def generate_random_quaternion(self):
     quaternion = Quaternion(w, x, y, z)
     return quaternion
 ```
-The number of configurations generated is a hyper parameter that can be modified. Allowing more configurations will cover more of c-free and make finding solutions when searching the graph more likely, but will also increase the density of your graph and impact search performance.
+The number of configurations generated is a parameter that can be modified. Allowing more configurations will cover more of c-free and make finding solutions when searching the graph more likely, but will also increase the density of your graph and impact search performance.
 
-In order to ensure the configurations generated were in c-free I used the FCL library to place my robot at that position and check for collisions against all obstacles.
+In order to ensure the configurations generated were in c-free, I used the FCL library to place my robot at that position and check for collisions against all obstacles.
 
 ##### Connecting Configurations
 
-Once you have a set of configurations they need to be connected into a graph. To do this we iterate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances and interpolating paths.
+Once you have a set of configurations they need to be connected into a graph. To do this we iterate through each configuration and attempt to connect a path between it and its closest neighbors. A potential path between two configurations is interpolated and checked for collisions. We continue this process until we find _k_ collision free paths, where _k_ is a parameter that can be modified. The interesting part of implementing this was in computing and storing distances, and interpolating paths.
 
 ###### Computing Distances
 
-I computed the distance as a weighted sum between the translational piece and the rotational piece, using the inner product of the two quaternions, as described in Kuffner's paper. Code snippets showing these calculations are below. Using this distance, I calculated the _k_ nearest neighbors naively, computing the current configuration's distance from all other configurations and sorting the result (performance could be improved by using a k-d tree).
+I computed the distance as a weighted sum between the translational and the rotational components. I calculated the rotational distance using the inner product of the two quaternions, as described in Kuffner's paper. Code snippets showing these calculations are below. Using this distance, I calculated the _k_ nearest neighbors naively, computing the current configuration's distance from all other configurations and sorting the result (performance could be improved by using a k-d tree).
 
 ```python
 #computes traditional euclidian distance in 3D
@@ -91,9 +91,9 @@ def slerp(self, start_quat, weight, final_quat):
     z1 = start_quat.z
 
     w2 = final_quat.w
-    x2 = start_quat.x
-    y2 = start_quat.y
-    z2 = start_quat.z
+    x2 = final_quat.x
+    y2 = final_quat.y
+    z2 = final_quat.z
 
     inner_prod = (w1 * w2) + (x1 * x2) + (y1 * y2) + (z1 * z2)
     if inner_prod < 0:
@@ -148,15 +148,15 @@ Once the learning phase is complete and the roadmap has been constructed it can 
 
 The closest _k_ neighbors are found for both configurations and a path between each of those _k_ neighbors is attempted until either a collision free path is discovered or all _k_ neighbors have been tried. A difference between this method and the method above is that only _k_ attempts are made to connect the configurations to the graph. Once _k_ attempts have been made, if no connections have been found, we return failure. 
 
-If the initial and goal configurations were successfully added to the graph that graph can be searched to find a path between them. I implemented Dijkstra's algorithm to search the graph for a shortest path. 
+If the initial and goal configurations were successfully added to the graph it can be searched to find a path between them. I implemented Dijkstra's algorithm to search the graph for a shortest path. 
 
 #### Smoothing Phase
 
 If a valid path between two configurations is found, smoothing that path could be useful. Smoothing can cut down on the intermediate positions the robot will take between the two configurations, and cut down on the overall distance travelled. 
 
-I implemented a greedy smoothing strategy. It works by trying to connect the initial node directly to the goal node with a collision free path. If that connection fails it moves up a node until either it finds a connection that isn't immediately prior to the goal node and can connects to it, or doesn't find any new connections. If it finds a new connection it restarts the process using the initial node it found in the previous sweep. If no new connections were found it moves the goal node to the node prior to it and restarts the process.
+I implemented a greedy smoothing strategy. It works by trying to connect the initial node directly to the goal node with a collision free path. If that connection fails it moves up a node until either it finds a connection that isn't immediately prior to the goal node and can connects to it, or doesn't find any new connections. If it finds a new connection it restarts the process using the node it found in the previous sweep as the new goal node. If no new connections were found it moves the goal node to the node prior to it and restarts the process.
 
-Once that smoothing process has completed I search the graph again, any improvements would be reflected in the new search, otherwise I would receive the same path. Below is pseudocode that reflects the process described above. I didn't include snippets directly from my project code because the process is clouded by object naming conventions and method parameters.
+Once that smoothing process has completed I search the graph again, any improvements would be reflected in the new search, otherwise I would receive the same path. Below is pseudocode that reflects the process described above. I didn't include snippets directly from my project code because the process is clouded by naming conventions and method parameters.
 
 ```python
 def smooth_path(path):
@@ -187,7 +187,7 @@ def smooth_path(path):
 
 ## Analysis
 
-I tested my implementation against three different environments with varying parameters for the number of configurations generated and the number of _k_ neighbors. I analyzed each combination's performance on runtime, chance of success, distance travelled. I also provide results for the path before and after smoothing. Below is a brief description of each environment followed by a breakdown of the performance results.
+I tested my implementation against three different environments with varying parameters for the number of configurations generated, and the number of _k_ neighbors. I analyzed each combination's performance on runtime, chance of success and distance travelled. I also provide results for the path before and after smoothing. Below is a brief description of each environment followed by a breakdown of the performance results.
 
 #### Sparse Environment
 
@@ -209,7 +209,7 @@ The narrow environment contained two large box obstacles. It forced the algorith
 
 #### Results
 
-The results below were generated in a 10x10x10 environment and the averages are over 500 iterations. In each iteration the initial position was in the bottom left (-10,-10,0) and the goal was in the top right (10,10,10).
+The results below were generated in a 10x10x10 environment and the averages are calculated over 500 iterations. In each iteration the initial position was in the bottom left (-10,-10,0) and the goal was in the top right (10,10,10).
 
 | Environment | Neighbors | Configurations | Avg Runtime (seconds) | Avg Distance (no path smoothing) | Avg Distance (path smoothing) | % Success |
 |-------------|-----------|----------------|-----------------------|------------------------------|---------------------------|-----------|
@@ -224,14 +224,14 @@ As expected the sparse environment was the easiest to solve and a path can be re
 
 ## Conclusion
 
-Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are a couple of GIFs showcasing successful paths visualized in ROS. 
+Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are some GIFs showcasing successful paths visualized in ROS. 
 
 ####Improvements
 
-There are a couple of improvements I could make to this implementation to improve performance. When I compute the distances between configurations, I could store them in a k-d tree which can be used to limit the number of comparisons made to find the nearest neighbors to a given configuration. Also, I could use a priority queue in Dijkstra's algorithm to reduce the complexity of the graph searching from _O(n^2)_ to _O(nlogn)_.
+There are some improvements I could make to this implementation to improve performance. When I compute the distances between configurations, I could store them in a k-d tree which can be used to limit the number of comparisons made when finding the nearest neighbors to a given configuration. Also, I could use a priority queue in Dijkstra's algorithm to reduce the complexity of the graph searching from _O(n^2)_ to _O(nlogn)_.
 
 #### Next Steps
-While the version I implemented was the vanilla PRM there are many alterations that can be made for better performance depending on the suspected environment. I would have liked to compare my implementation to a lazy PRM, which doesn't perform collision detection when storing configurations, or to the visibility PRM, which reduces graph density. 
+The version I implemented was the vanilla PRM and there are many alterations that can be made for better performance depending on the suspected environment. I would have liked to have compared my implementation to a lazy PRM, which doesn't perform collision detection when storing configurations, or to the visibility PRM, which reduces graph density. 
 
 #### Successful Paths from ROS
 
