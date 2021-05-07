@@ -1,6 +1,6 @@
 ## Introduction
 
-The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The environment was represented as a 10x10x10 cube and the robot as a cylinder with radius and height equal to 0.5, there is an approximate image of the agent below. The obstacles and robot were defined as collision objects using the FCL library, which was used for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique, including ideas for improvements. 
+The problem I solved was motion planning for a holonomic cylindrical robot in a 3D environment with obstacles. The environment was represented as a 20x20x20 cube cut in half, the _z_ axis was limited to zero through ten. The robot was represented as a cylinder with radius and height equal to 0.5, there is an approximate image of the agent below. The obstacles and robot were defined as collision objects using the FCL library, which was used for static collision detection. I used a PRM based technique to solve this problem. Below I provide details on the PRM implementation, analysis of the algorithms performance, and a conclusion containing what I thought was interesting about this technique, including ideas for improvements. 
 
 <img src="images/agent.png" alt="drawing"/>
 
@@ -211,7 +211,7 @@ The narrow environment contained two large box obstacles. It forced the algorith
 
 #### Results
 
-The results below were generated in a 10x10x10 environment and the averages are calculated over 500 iterations. In each iteration the initial position was in the bottom left (-10,-10,0) and the goal was in the top right (10,10,10).
+The results below were generated in a 20x20x10 environment and the averages are calculated over 500 iterations. In each iteration the initial position was in the bottom left (-10,-10,0) and the goal was in the top right (10,10,10).
 
 | Environment | Neighbors | Configurations | Avg Runtime (seconds) | Avg Distance (no path smoothing) | Avg Distance (path smoothing) | % Success |
 |-------------|-----------|----------------|-----------------------|------------------------------|---------------------------|-----------|
