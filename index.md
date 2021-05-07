@@ -224,6 +224,15 @@ The results below were generated in a 10x10x10 environment and the averages are 
 
 As expected the sparse environment was the easiest to solve and a path can be reliably found using eighty configurations. Another interesting finding is that even though the narrow environment was the most difficult for the algorithm to solve, it was more runtime efficient than the dense environment and had similar run times to the sparse environment. This is because even though the passage is difficult to cross its overall obstacle density isn't substantial and collisions when generating configurations, or attempting to connect paths, are minimal. 
 
+I was not particularly satisfied with the algorithm's performance on the dense and narrow environments so I decided to double the number of configurations and try again, which resulted in the data below.
+
+| Environment | Neighbors | Configurations | Avg Runtime (seconds) | Avg Distance (no path smoothing) | Avg Distance (path smoothing) | % Success |
+|-------------|-----------|----------------|-----------------------|------------------------------|---------------------------|-----------|
+| dense      | 7         | 160             | 2.83                  | 48.45                       | 39.14                     | 73.44     |
+| narrow     | 7         | 160             | 1.36    |40.77|34.73|40.11
+
+This second attempt seemed to increase the performance in the dense environment substantially, but had no effect on the narrow environment. This leads me to believe that to see significant gains in the narrow environment, I would need to change some aspects of how configurations are generated. In class we discussed PRM planners that used the medial axis to better navigate tight areas, I think that implementation would be useful here.
+
 ## Conclusion
 
 Overall, I think the PRM implementation was a good method for solving this problem. Below are some improvements that I would have liked to have made given more time, and a couple of next steps. Lastly, there are some GIFs showcasing successful paths visualized in ROS. You will notice in the animations that the robot is spherical, and only rotates around the vertical axis. This is because while the robot in my code is cylindrical and uses quaternions to represent rotation around all axes, I didn't update the URDF for Sphero to reflect this. I left the agent spherical and extracted the yaw from quaternions using the methods described in LaValle's "_Motion Planning_". 
